@@ -35,6 +35,12 @@ class ScriptLine:
     text: str
 
 
+def sanitize_text(text: str) -> str:
+    text = text.replace("\\n", " ")
+    text = text.replace("\r", " ").replace("\n", " ")
+    return re.sub(r" {2,}", " ", text).strip()
+
+
 def parse_script(script_path: Path) -> list[ScriptLine]:
     lines: list[ScriptLine] = []
     for index, raw_line in enumerate(script_path.read_text(encoding="utf-8").splitlines(), start=1):
@@ -54,6 +60,7 @@ def parse_script(script_path: Path) -> list[ScriptLine]:
 
 
 def build_command(script_line: ScriptLine, output_path: Path) -> list[str]:
+    sanitized_text = sanitize_text(script_line.text)
     command = [
         VOICEPEAK_EXE,
         NARRATOR_FLAG,
@@ -61,7 +68,7 @@ def build_command(script_line: ScriptLine, output_path: Path) -> list[str]:
         OUTPUT_FLAG,
         str(output_path),
         TEXT_FLAG,
-        script_line.text,
+        sanitized_text,
     ]
     if script_line.emotion.lower() != "none":
         command.extend([EMOTION_FLAG, script_line.emotion])
