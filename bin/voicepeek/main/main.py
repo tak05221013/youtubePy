@@ -59,8 +59,7 @@ def parse_script(script_path: Path) -> list[ScriptLine]:
     return lines
 
 
-def build_command(script_line: ScriptLine, output_path: Path) -> list[str]:
-    sanitized_text = sanitize_text(script_line.text)
+def build_command(script_line: ScriptLine, output_path: Path, text_path: Path) -> list[str]:
     command = [
         VOICEPEAK_EXE,
         NARRATOR_FLAG,
@@ -68,7 +67,7 @@ def build_command(script_line: ScriptLine, output_path: Path) -> list[str]:
         OUTPUT_FLAG,
         str(output_path),
         TEXT_FLAG,
-        sanitized_text,
+        str(text_path),
     ]
     if script_line.emotion.lower() != "none":
         command.extend([EMOTION_FLAG, script_line.emotion])
@@ -80,7 +79,9 @@ def run(script_path: Path, output_dir: Path) -> None:
     script_lines = parse_script(script_path)
     for index, script_line in enumerate(script_lines, start=1):
         output_path = output_dir / f"{index:03}.wav"
-        command = build_command(script_line, output_path)
+        text_path = output_dir / f"{index:03}.txt"
+        text_path.write_text(sanitize_text(script_line.text), encoding="utf-8")
+        command = build_command(script_line, output_path, text_path)
         subprocess.run(command, check=True)
 
 
