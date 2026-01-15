@@ -20,10 +20,10 @@ SPEAKER_MAP = {
     "女性登場人物": "Japanese Female 1",
 }
 
-NARRATOR_FLAG = "--narrator"
-TEXT_FLAG = "--text"
-OUTPUT_FLAG = "--output"
-EMOTION_FLAG = "--emotion"
+NARRATOR_FLAG = "-n"
+TEXT_FLAG = "-t"
+OUTPUT_FLAG = "-o"
+EMOTION_FLAG = "-"
 
 LINE_PATTERN = re.compile(r"^\[(?P<person>[^/\]]+)\s*/\s*(?P<emotion>[^\]]+)\]\s*(?P<text>.+)$")
 
