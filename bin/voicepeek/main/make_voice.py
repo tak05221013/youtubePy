@@ -2,7 +2,7 @@
 """Generate Voicepeak audio files from a script.
 
 Usage:
-  python make_voice.py <script_file> <output_dir> <voicepeak_exe> <merged_output>
+  python make_voice.py <script_file> <output_dir> [merged_output]
 """
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import re
 import wave
 
 FIXED_SPEAKER = "Japanese Female 1"
+DEFAULT_VOICEPEAK_EXE = r"C:\Program Files\VOICEPEAK\voicepeak.exe"
 
 NARRATOR_FLAG = "-n"
 TEXT_FLAG = "-t"
@@ -103,17 +104,14 @@ def main() -> None:
     parser.add_argument("script_file", type=Path, help="Path to the script file.")
     parser.add_argument("output_dir", type=Path, help="Directory to write wav files.")
     parser.add_argument(
-        "voicepeak_exe",
-        type=str,
-        help="Path to the Voicepeak executable.",
-    )
-    parser.add_argument(
         "merged_output",
+        nargs="?",
         type=Path,
-        help="Output path for the merged wav file.",
+        help="Output path for the merged wav file (defaults to <output_dir>/merged.wav).",
     )
     args = parser.parse_args()
-    run(args.script_file, args.output_dir, args.voicepeak_exe, args.merged_output)
+    merged_output = args.merged_output or (args.output_dir / "merged.wav")
+    run(args.script_file, args.output_dir, DEFAULT_VOICEPEAK_EXE, merged_output)
 
 
 if __name__ == "__main__":
