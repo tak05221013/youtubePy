@@ -2,7 +2,7 @@
 """Generate Voicepeak audio files from a script.
 
 Usage:
-  python main.py <script_file> <output_dir>
+  python make_voice.py <script_file> <output_dir>
 """
 from __future__ import annotations
 
