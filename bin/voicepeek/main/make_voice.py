@@ -11,6 +11,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 import re
+import tempfile
 import wave
 
 FIXED_SPEAKER = "Japanese Female 1"
@@ -66,17 +67,77 @@ def build_command(script_line: ScriptLine, output_path: Path, text_path: Path, v
     return command
 
 
+def _sample_format_for_width(sampwidth: int) -> str:
+    formats = {1: "u8", 2: "s16", 3: "s24", 4: "s32"}
+    if sampwidth not in formats:
+        raise ValueError(f"Unsupported sample width: {sampwidth} bytes")
+    return formats[sampwidth]
+
+
+def _convert_wav_to_match(
+    wav_path: Path,
+    target_params: wave._wave_params,
+    temp_dir: Path,
+) -> Path:
+    target_channels = target_params.nchannels
+    target_width = target_params.sampwidth
+    target_rate = target_params.framerate
+    sample_fmt = _sample_format_for_width(target_width)
+    output_path = temp_dir / f"{wav_path.stem}_converted.wav"
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(wav_path),
+        "-ac",
+        str(target_channels),
+        "-ar",
+        str(target_rate),
+        "-sample_fmt",
+        sample_fmt,
+        str(output_path),
+    ]
+    example = (
+        f"ffmpeg -y -i {wav_path} -ac {target_channels} -ar {target_rate} "
+        f"-sample_fmt {sample_fmt} {output_path}"
+    )
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "ffmpeg was not found while attempting to convert wav files.\n"
+            f"Command: {' '.join(command)}\n"
+            f"Example: {example}"
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        error_message = exc.stderr.strip() or exc.stdout.strip()
+        raise RuntimeError(
+            "Failed to convert wav file with ffmpeg.\n"
+            f"Command: {' '.join(command)}\n"
+            f"Example: {example}\n"
+            f"Error output:\n{error_message}"
+        ) from exc
+    return output_path
+
+
 def concat_wav_files(wav_paths: list[Path], merged_output: Path) -> None:
     if not wav_paths:
         raise ValueError("No wav files were generated to concatenate.")
     with wave.open(str(wav_paths[0]), "rb") as first_wav:
         params = first_wav.getparams()
-        frames = [first_wav.readframes(first_wav.getnframes())]
-    for wav_path in wav_paths[1:]:
-        with wave.open(str(wav_path), "rb") as wav_file:
-            if wav_file.getparams()[:4] != params[:4]:
-                raise ValueError(f"Wav file parameters do not match: {wav_path}")
-            frames.append(wav_file.readframes(wav_file.getnframes()))
+    with tempfile.TemporaryDirectory() as temp_dir_name:
+        temp_dir = Path(temp_dir_name)
+        prepared_paths: list[Path] = [wav_paths[0]]
+        for wav_path in wav_paths[1:]:
+            with wave.open(str(wav_path), "rb") as wav_file:
+                if wav_file.getparams()[:4] == params[:4]:
+                    prepared_paths.append(wav_path)
+                    continue
+            prepared_paths.append(_convert_wav_to_match(wav_path, params, temp_dir))
+        frames: list[bytes] = []
+        for wav_path in prepared_paths:
+            with wave.open(str(wav_path), "rb") as wav_file:
+                frames.append(wav_file.readframes(wav_file.getnframes()))
     merged_output.parent.mkdir(parents=True, exist_ok=True)
     with wave.open(str(merged_output), "wb") as output_wav:
         output_wav.setparams(params)
