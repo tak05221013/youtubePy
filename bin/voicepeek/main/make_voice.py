@@ -153,7 +153,17 @@ def run(script_path: Path, output_dir: Path, voicepeak_exe: str, merged_output: 
         text_path = output_dir / f"{index:03}.txt"
         text_path.write_text(sanitize_text(script_line.text), encoding="utf-8")
         command = build_command(script_line, output_path, text_path, voicepeak_exe)
-        subprocess.run(command, check=True)
+        try:
+            subprocess.run(command, check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as exc:
+            stdout = exc.stdout or ""
+            stderr = exc.stderr or ""
+            raise RuntimeError(
+                "Voicepeak command failed.\n"
+                f"Command: {' '.join(command)}\n"
+                f"Stdout:\n{stdout}\n"
+                f"Stderr:\n{stderr}"
+            ) from exc
     wav_paths = sorted(output_dir.glob("*.wav"), key=lambda path: path.name)
     if merged_output.resolve() in {path.resolve() for path in wav_paths}:
         wav_paths = [path for path in wav_paths if path.resolve() != merged_output.resolve()]
