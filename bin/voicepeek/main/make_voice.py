@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -156,6 +157,19 @@ def run(script_path: Path, output_dir: Path, voicepeak_exe: str, merged_output: 
         try:
             subprocess.run(command, check=True, capture_output=True, text=True)
         except subprocess.CalledProcessError as exc:
+            if script_line.emotion.lower() != "none":
+                fallback_line = ScriptLine(emotion="none", text=script_line.text)
+                fallback_command = build_command(fallback_line, output_path, text_path, voicepeak_exe)
+                try:
+                    subprocess.run(fallback_command, check=True, capture_output=True, text=True)
+                    print(
+                        "Warning: Voicepeak failed with emotion "
+                        f"'{script_line.emotion}'. Retried without emotion.",
+                        file=sys.stderr,
+                    )
+                    continue
+                except subprocess.CalledProcessError:
+                    pass
             stdout = exc.stdout or ""
             stderr = exc.stderr or ""
             raise RuntimeError(
