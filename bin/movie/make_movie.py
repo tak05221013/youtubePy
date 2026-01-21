@@ -29,7 +29,15 @@ STYLES = {
 }
 
 
-def create_video_from_json(json_path):
+def resolve_path(file_path, base_dir):
+    if not file_path or not base_dir:
+        return file_path
+    if os.path.isabs(file_path):
+        return file_path
+    return os.path.join(base_dir, file_path)
+
+
+def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, bgm_base_dir=None):
     if not os.path.exists(json_path):
         print(f"Error: JSON file '{json_path}' not found.")
         return
@@ -44,7 +52,7 @@ def create_video_from_json(json_path):
     for i, s in enumerate(data['scenes']):
         print(f"Scene {i + 1}/{len(data['scenes'])} を処理中...")
 
-        audio_path = s['narration']['audio_path']
+        audio_path = resolve_path(s['narration']['audio_path'], audio_base_dir)
         if not os.path.exists(audio_path):
             print(f"Warning: Audio '{audio_path}' not found. Skipping scene.")
             continue
@@ -52,7 +60,7 @@ def create_video_from_json(json_path):
         audio = AudioFileClip(audio_path)
         duration = audio.duration
 
-        img_path = s['image_path']
+        img_path = resolve_path(s['image_path'], image_base_dir)
         if not os.path.exists(img_path):
             print(f"Warning: Image '{img_path}' not found. Skipping.")
             continue
@@ -105,8 +113,9 @@ def create_video_from_json(json_path):
 
     final_video = concatenate_videoclips(scene_clips, method="compose")
 
-    if settings.get('bgm_path') and os.path.exists(settings['bgm_path']):
-        bgm = AudioFileClip(settings['bgm_path']).with_volume_scaled(settings['bgm_volume'])
+    bgm_path = resolve_path(settings.get('bgm_path'), bgm_base_dir)
+    if bgm_path and os.path.exists(bgm_path):
+        bgm = AudioFileClip(bgm_path).with_volume_scaled(settings['bgm_volume'])
         bgm = bgm.with_duration(final_video.duration)
 
         from moviepy.audio.AudioClip import CompositeAudioClip
@@ -131,6 +140,9 @@ def create_video_from_json(json_path):
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         json_input = sys.argv[1]
-        create_video_from_json(json_input)
+        image_base_dir = sys.argv[2] if len(sys.argv) > 2 else None
+        audio_base_dir = sys.argv[3] if len(sys.argv) > 3 else None
+        bgm_base_dir = sys.argv[4] if len(sys.argv) > 4 else None
+        create_video_from_json(json_input, image_base_dir, audio_base_dir, bgm_base_dir)
     else:
-        print("使い方: python manga_generator.py [設定JSONファイル名]")
+        print("使い方: python manga_generator.py [設定JSONファイル名] [画像フォルダ] [音声フォルダ] [BGMフォルダ]")
