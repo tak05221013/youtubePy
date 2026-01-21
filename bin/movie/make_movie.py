@@ -37,7 +37,7 @@ def resolve_path(file_path, base_dir):
     return os.path.join(base_dir, file_path)
 
 
-def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, bgm_base_dir=None):
+def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, bgm_base_dir=None, output_base_dir=None):
     if not os.path.exists(json_path):
         print(f"Error: JSON file '{json_path}' not found.")
         return
@@ -122,7 +122,7 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
         combined_audio = CompositeAudioClip([final_video.audio, bgm])
         final_video = final_video.with_audio(combined_audio)
 
-    output_path = settings.get('output_file', 'output_shorts.mp4')
+    output_path = resolve_path(settings.get('output_file', 'output_shorts.mp4'), output_base_dir)
     output_dir = os.path.dirname(output_path)
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -143,6 +143,7 @@ if __name__ == "__main__":
         image_base_dir = sys.argv[2] if len(sys.argv) > 2 else None
         audio_base_dir = sys.argv[3] if len(sys.argv) > 3 else None
         bgm_base_dir = sys.argv[4] if len(sys.argv) > 4 else None
-        create_video_from_json(json_input, image_base_dir, audio_base_dir, bgm_base_dir)
+        output_base_dir = sys.argv[5] if len(sys.argv) > 5 else None
+        create_video_from_json(json_input, image_base_dir, audio_base_dir, bgm_base_dir, output_base_dir)
     else:
-        print("使い方: python manga_generator.py [設定JSONファイル名] [画像フォルダ] [音声フォルダ] [BGMフォルダ]")
+        print("使い方: python manga_generator.py [設定JSONファイル名] [画像フォルダ] [音声フォルダ] [BGMフォルダ] [出力フォルダ]")
