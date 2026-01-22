@@ -9,21 +9,23 @@ from moviepy import ImageClip, AudioFileClip, TextClip, CompositeVideoClip, conc
 os.environ["IMAGEMAGICK_BINARY"] = r"C:\Program Files\ImageMagick-7.1.2-Q16-HDRI\magick.exe"
 
 # ==========================================
-# 2. テロップのスタイル定義（基本の最大サイズ）
+# 2. テロップのスタイル定義
 # ==========================================
 STYLES = {
     "impact_red": {
-        "fontsize": 110,  # 基本は大きく
+        "fontsize": 110,
         "color": "white",
-        "bg_color": "red",
-        "font": "BIZ-UDGothicB.ttc",
+        # "bg_color": "red",    # 背景色は無効化
+        "stroke_color": "red",  # 枠の色を赤に設定
+        "stroke_width": 6,      # 枠の太さ
+        "font": "meiryob.ttc",
     },
     "caption_white": {
-        "fontsize": 75,  # 基本は大きく
+        "fontsize": 75,
         "color": "white",
         "stroke_color": "black",
         "stroke_width": 2,
-        "font": "BIZ-UDGothicB.ttc",
+        "font": "meiryob.ttc",
     }
 }
 
@@ -36,6 +38,36 @@ def resolve_path(file_path, base_dir):
     return os.path.join(base_dir, file_path)
 
 
+def merge_short_lines(text, threshold=10):
+    """
+    【追加機能】
+    行ごとの文字数が短い場合、次の行と足しても指定文字数(threshold)以下なら
+    1行に結合する関数。
+    """
+    if not text:
+        return text
+
+    # 改行でリスト化
+    lines = text.split('\n')
+    if len(lines) <= 1:
+        return text
+
+    merged = []
+    buffer = lines[0]
+
+    for i in range(1, len(lines)):
+        next_line = lines[i]
+        # 現在のバッファと次の行を足して閾値以下なら結合
+        if len(buffer) + len(next_line) <= threshold:
+            buffer += next_line  # 結合（日本語なのでスペースなしで結合）
+        else:
+            merged.append(buffer)
+            buffer = next_line
+
+    merged.append(buffer)
+    return '\n'.join(merged)
+
+
 def calculate_optimized_fontsize(text, base_fontsize, target_width):
     """
     テキストがターゲット幅に収まるようにフォントサイズを調整する関数
@@ -43,7 +75,6 @@ def calculate_optimized_fontsize(text, base_fontsize, target_width):
     if not text:
         return base_fontsize
 
-    # テキストの中で一番長い行の文字数を取得
     lines = text.split('\n')
     max_char_count = max(len(line) for line in lines) if lines else 0
 
@@ -51,10 +82,8 @@ def calculate_optimized_fontsize(text, base_fontsize, target_width):
         return base_fontsize
 
     # 簡易計算: 幅 / 文字数 = 1文字あたりの最大ピクセル数
-    # 少し余裕を持たせるために 0.95 を掛ける
     calculated_size = int((target_width / max_char_count) * 0.95)
 
-    # 設定値より小さくなる場合（文字が多い場合）のみ採用する
     return min(base_fontsize, calculated_size)
 
 
@@ -99,27 +128,32 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
         for sub in s.get('subtitles', []):
             style = STYLES.get(sub['style'], STYLES['caption_white'])
             sub_duration = sub.get('duration', duration - sub['start_offset'])
-
-            # 修正ポイント1: テロップエリアの幅を 80% -> 90% に拡大
             target_width = int(settings['width'] * 0.9)
 
-            # 修正ポイント2: 文字数に応じてフォントサイズを自動計算
+            # 【修正ポイント3】短い行を結合（閾値: 10文字）
+            # ここで「家賃を」+「節約しようと」等が結合されます
+            merged_text = merge_short_lines(sub['text'], threshold=10)
+
+            # フォントサイズの自動計算（結合後のテキストで行う）
             optimized_size = calculate_optimized_fontsize(
-                sub['text'],
+                merged_text,
                 style['fontsize'],
                 target_width
             )
 
+            # 表示用テキスト（メイリオ用見切れ対策の改行+空白を追加）
+            display_text = merged_text + "\n "
+
             txt = TextClip(
-                text=sub['text'],
+                text=display_text,
                 font=style['font'],
-                font_size=optimized_size,  # 計算済みのサイズを適用
+                font_size=optimized_size,
                 color=style['color'],
                 bg_color=style.get('bg_color'),
                 stroke_color=style.get('stroke_color'),
                 stroke_width=style.get('stroke_width', 0),
                 method='caption',
-                size=(target_width, None)  # 幅指定は維持（念のため）
+                size=(target_width, None)
             )
 
             txt = (txt.with_start(sub['start_offset'])
