@@ -4,23 +4,22 @@ import sys
 from moviepy import ImageClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
 
 # ==========================================
-# 1. 環境設定 (ImageMagickのパスを指定)
+# 1. 環境設定
 # ==========================================
-# ImageMagickのパスを環境変数にセット
 os.environ["IMAGEMAGICK_BINARY"] = r"C:\Program Files\ImageMagick-7.1.2-Q16-HDRI\magick.exe"
 
 # ==========================================
-# 2. テロップのスタイル定義
+# 2. テロップのスタイル定義（基本の最大サイズ）
 # ==========================================
 STYLES = {
     "impact_red": {
-        "fontsize": 80,
+        "fontsize": 110,  # 基本は大きく
         "color": "white",
         "bg_color": "red",
         "font": "BIZ-UDGothicB.ttc",
     },
     "caption_white": {
-        "fontsize": 60,
+        "fontsize": 75,  # 基本は大きく
         "color": "white",
         "stroke_color": "black",
         "stroke_width": 2,
@@ -37,7 +36,30 @@ def resolve_path(file_path, base_dir):
     return os.path.join(base_dir, file_path)
 
 
-def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, bgm_base_dir=None, output_base_dir=None):
+def calculate_optimized_fontsize(text, base_fontsize, target_width):
+    """
+    テキストがターゲット幅に収まるようにフォントサイズを調整する関数
+    """
+    if not text:
+        return base_fontsize
+
+    # テキストの中で一番長い行の文字数を取得
+    lines = text.split('\n')
+    max_char_count = max(len(line) for line in lines) if lines else 0
+
+    if max_char_count == 0:
+        return base_fontsize
+
+    # 簡易計算: 幅 / 文字数 = 1文字あたりの最大ピクセル数
+    # 少し余裕を持たせるために 0.95 を掛ける
+    calculated_size = int((target_width / max_char_count) * 0.95)
+
+    # 設定値より小さくなる場合（文字が多い場合）のみ採用する
+    return min(base_fontsize, calculated_size)
+
+
+def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, bgm_base_dir=None,
+                           output_base_dir=None):
     if not os.path.exists(json_path):
         print(f"Error: JSON file '{json_path}' not found.")
         return
@@ -65,14 +87,12 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
             print(f"Warning: Image '{img_path}' not found. Skipping.")
             continue
 
-        # v2.x対応: with_duration
         img = ImageClip(img_path).with_duration(duration)
         img = img.resized(width=settings['width'])
 
         if s.get('animation') == 'zoom_in':
             img = img.resized(lambda t: 1.0 + 0.1 * (t / duration))
 
-        # v2.x対応: with_position
         img = img.with_position('center')
 
         sub_clips = [img]
@@ -80,29 +100,34 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
             style = STYLES.get(sub['style'], STYLES['caption_white'])
             sub_duration = sub.get('duration', duration - sub['start_offset'])
 
-            # 修正ポイント: sizeの計算結果を int() で囲んで整数化
-            target_width = int(settings['width'] * 0.8)
+            # 修正ポイント1: テロップエリアの幅を 80% -> 90% に拡大
+            target_width = int(settings['width'] * 0.9)
+
+            # 修正ポイント2: 文字数に応じてフォントサイズを自動計算
+            optimized_size = calculate_optimized_fontsize(
+                sub['text'],
+                style['fontsize'],
+                target_width
+            )
 
             txt = TextClip(
                 text=sub['text'],
                 font=style['font'],
-                font_size=style['fontsize'],
+                font_size=optimized_size,  # 計算済みのサイズを適用
                 color=style['color'],
                 bg_color=style.get('bg_color'),
                 stroke_color=style.get('stroke_color'),
                 stroke_width=style.get('stroke_width', 0),
                 method='caption',
-                size=(target_width, None)
+                size=(target_width, None)  # 幅指定は維持（念のため）
             )
 
-            # v2.x対応: with_start, with_duration, with_position
             txt = (txt.with_start(sub['start_offset'])
                    .with_duration(sub_duration)
                    .with_position(tuple(sub['position'])))
             sub_clips.append(txt)
 
         scene_video = CompositeVideoClip(sub_clips, size=(settings['width'], settings['height']))
-        # v2.x対応: with_audio, with_duration
         scene_video = scene_video.with_audio(audio).with_duration(duration)
 
         scene_clips.append(scene_video)
@@ -146,4 +171,4 @@ if __name__ == "__main__":
         output_base_dir = sys.argv[5] if len(sys.argv) > 5 else None
         create_video_from_json(json_input, image_base_dir, audio_base_dir, bgm_base_dir, output_base_dir)
     else:
-        print("使い方: python manga_generator.py [設定JSONファイル名] [画像フォルダ] [音声フォルダ] [BGMフォルダ] [出力フォルダ]")
+        print("使い方: python make_movie.py [設定JSONファイル名] ...")
