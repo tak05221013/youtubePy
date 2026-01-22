@@ -17,7 +17,7 @@ STYLES = {
         "color": "white",
         # "bg_color": "red",    # 背景色は無効化
         "stroke_color": "red",  # 枠の色を赤に設定
-        "stroke_width": 6,      # 枠の太さ
+        "stroke_width": 6,  # 枠の太さ
         "font": "meiryob.ttc",
     },
     "caption_white": {
@@ -40,7 +40,6 @@ def resolve_path(file_path, base_dir):
 
 def merge_short_lines(text, threshold=10):
     """
-    【追加機能】
     行ごとの文字数が短い場合、次の行と足しても指定文字数(threshold)以下なら
     1行に結合する関数。
     """
@@ -59,7 +58,7 @@ def merge_short_lines(text, threshold=10):
         next_line = lines[i]
         # 現在のバッファと次の行を足して閾値以下なら結合
         if len(buffer) + len(next_line) <= threshold:
-            buffer += next_line  # 結合（日本語なのでスペースなしで結合）
+            buffer += next_line
         else:
             merged.append(buffer)
             buffer = next_line
@@ -109,7 +108,7 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
             continue
 
         audio = AudioFileClip(audio_path)
-        duration = audio.duration
+        duration = audio.duration  # シーン全体の長さ（音声の長さ）
 
         img_path = resolve_path(s['image_path'], image_base_dir)
         if not os.path.exists(img_path):
@@ -125,23 +124,47 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
         img = img.with_position('center')
 
         sub_clips = [img]
-        for sub in s.get('subtitles', []):
+        subtitles = s.get('subtitles', [])
+
+        # 字幕の処理ループ（インデックス j を使用）
+        for j, sub in enumerate(subtitles):
             style = STYLES.get(sub['style'], STYLES['caption_white'])
-            sub_duration = sub.get('duration', duration - sub['start_offset'])
+
+            # ---【修正箇所】表示時間の自動計算ロジック ---
+            start_time = sub['start_offset']
+
+            if 'duration' in sub:
+                # JSONで明示的に指定されている場合はそれを使う
+                sub_duration = sub['duration']
+            else:
+                # 次の字幕があるか確認
+                if j < len(subtitles) - 1:
+                    # 次の字幕の開始時間を取得
+                    next_start = subtitles[j + 1]['start_offset']
+                    # 次の字幕が始まるまでを表示時間とする
+                    sub_duration = next_start - start_time
+                else:
+                    # 最後の字幕なら、シーン終了まで表示
+                    sub_duration = duration - start_time
+
+            # マイナスの時間にならないよう安全策
+            if sub_duration < 0:
+                sub_duration = 0.1
+            # ---------------------------------------------
+
             target_width = int(settings['width'] * 0.9)
 
-            # 【修正ポイント3】短い行を結合（閾値: 10文字）
-            # ここで「家賃を」+「節約しようと」等が結合されます
+            # 短い行を結合
             merged_text = merge_short_lines(sub['text'], threshold=10)
 
-            # フォントサイズの自動計算（結合後のテキストで行う）
+            # フォントサイズの自動計算
             optimized_size = calculate_optimized_fontsize(
                 merged_text,
                 style['fontsize'],
                 target_width
             )
 
-            # 表示用テキスト（メイリオ用見切れ対策の改行+空白を追加）
+            # 見切れ対策の改行+空白
             display_text = merged_text + "\n "
 
             txt = TextClip(
@@ -156,7 +179,7 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
                 size=(target_width, None)
             )
 
-            txt = (txt.with_start(sub['start_offset'])
+            txt = (txt.with_start(start_time)
                    .with_duration(sub_duration)
                    .with_position(tuple(sub['position'])))
             sub_clips.append(txt)
