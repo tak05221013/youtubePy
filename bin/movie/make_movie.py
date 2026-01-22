@@ -126,8 +126,8 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
         sub_clips = [img]
         subtitles = s.get('subtitles', [])
 
-        # 字幕の処理ループ（インデックス j を使用）
-        for j, sub in enumerate(subtitles):
+        # 字幕の処理ループ（2個目以降は出力対象外）
+        for j, sub in enumerate(subtitles[:1]):
             style = STYLES.get(sub['style'], STYLES['caption_white'])
 
             # ---【修正箇所】表示時間の自動計算ロジック ---
