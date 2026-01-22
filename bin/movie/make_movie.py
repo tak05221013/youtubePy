@@ -1,7 +1,14 @@
 import json
 import os
 import sys
-from moviepy import ImageClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
+from moviepy import (
+    ImageClip,
+    AudioFileClip,
+    TextClip,
+    CompositeVideoClip,
+    ColorClip,
+    concatenate_videoclips,
+)
 
 # ==========================================
 # 1. 環境設定
@@ -79,6 +86,25 @@ def calculate_optimized_fontsize(text, base_fontsize, target_width):
     return min(base_fontsize, calculated_size)
 
 
+def normalize_background_color(color_value):
+    if color_value is None:
+        return None
+    if isinstance(color_value, (list, tuple)) and len(color_value) == 3:
+        return tuple(color_value)
+    if isinstance(color_value, str):
+        color_value = color_value.strip()
+        if color_value.startswith("#") and len(color_value) == 7:
+            return tuple(int(color_value[i:i + 2], 16) for i in (1, 3, 5))
+        named_colors = {
+            "white": (255, 255, 255),
+            "black": (0, 0, 0),
+        }
+        mapped = named_colors.get(color_value.lower())
+        if mapped:
+            return mapped
+    return color_value
+
+
 def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, bgm_base_dir=None,
                            output_base_dir=None, styles_path=None):
     if not os.path.exists(json_path):
@@ -120,7 +146,17 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
 
         img = img.with_position('center')
 
-        sub_clips = [img]
+        background_color = normalize_background_color(
+            settings.get('background_color', 'white')
+        )
+        if isinstance(background_color, tuple):
+            background_clip = ColorClip(
+                size=(settings['width'], settings['height']),
+                color=background_color
+            ).with_duration(duration)
+            sub_clips = [background_clip, img]
+        else:
+            sub_clips = [img]
         subtitles = s.get('subtitles', [])
         default_style = styles.get('caption_white') or next(iter(styles.values()))
 
@@ -182,7 +218,11 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
                    .with_position(tuple(sub['position'])))
             sub_clips.append(txt)
 
-        scene_video = CompositeVideoClip(sub_clips, size=(settings['width'], settings['height']))
+        scene_video = CompositeVideoClip(
+            sub_clips,
+            size=(settings['width'], settings['height']),
+            bg_color=background_color
+        )
         scene_video = scene_video.with_audio(audio).with_duration(duration)
 
         scene_clips.append(scene_video)
