@@ -8,26 +8,19 @@ from moviepy import ImageClip, AudioFileClip, TextClip, CompositeVideoClip, conc
 # ==========================================
 os.environ["IMAGEMAGICK_BINARY"] = r"C:\Program Files\ImageMagick-7.1.2-Q16-HDRI\magick.exe"
 
-# ==========================================
-# 2. テロップのスタイル定義
-# ==========================================
-STYLES = {
-    "impact_red": {
-        "fontsize": 110,
-        "color": "white",
-        # "bg_color": "red",    # 背景色は無効化
-        "stroke_color": "red",  # 枠の色を赤に設定
-        "stroke_width": 6,  # 枠の太さ
-        "font": "meiryob.ttc",
-    },
-    "caption_white": {
-        "fontsize": 75,
-        "color": "white",
-        "stroke_color": "black",
-        "stroke_width": 2,
-        "font": "meiryob.ttc",
-    }
-}
+def load_styles(styles_path):
+    if not styles_path:
+        print("Error: スタイルJSONファイルが指定されていません。")
+        return None
+    if not os.path.exists(styles_path):
+        print(f"Error: スタイルJSONファイル '{styles_path}' が見つかりません。")
+        return None
+    with open(styles_path, 'r', encoding='utf-8') as f:
+        styles = json.load(f)
+    if not isinstance(styles, dict) or not styles:
+        print("Error: スタイルJSONの形式が不正です。")
+        return None
+    return styles
 
 
 def resolve_path(file_path, base_dir):
@@ -87,13 +80,17 @@ def calculate_optimized_fontsize(text, base_fontsize, target_width):
 
 
 def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, bgm_base_dir=None,
-                           output_base_dir=None):
+                           output_base_dir=None, styles_path=None):
     if not os.path.exists(json_path):
         print(f"Error: JSON file '{json_path}' not found.")
         return
 
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
+
+    styles = load_styles(styles_path)
+    if not styles:
+        return
 
     settings = data['project_settings']
     scene_clips = []
@@ -125,10 +122,11 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
 
         sub_clips = [img]
         subtitles = s.get('subtitles', [])
+        default_style = styles.get('caption_white') or next(iter(styles.values()))
 
         # 字幕の処理ループ（2個目以降は出力対象外）
         for j, sub in enumerate(subtitles[:1]):
-            style = STYLES.get(sub['style'], STYLES['caption_white'])
+            style = styles.get(sub['style'], default_style)
 
             # ---【修正箇所】表示時間の自動計算ロジック ---
             start_time = sub['start_offset']
@@ -226,6 +224,15 @@ if __name__ == "__main__":
         audio_base_dir = sys.argv[3] if len(sys.argv) > 3 else None
         bgm_base_dir = sys.argv[4] if len(sys.argv) > 4 else None
         output_base_dir = sys.argv[5] if len(sys.argv) > 5 else None
-        create_video_from_json(json_input, image_base_dir, audio_base_dir, bgm_base_dir, output_base_dir)
+        styles_path = sys.argv[6] if len(sys.argv) > 6 else None
+        create_video_from_json(
+            json_input,
+            image_base_dir,
+            audio_base_dir,
+            bgm_base_dir,
+            output_base_dir,
+            styles_path
+        )
     else:
-        print("使い方: python make_movie.py [設定JSONファイル名] ...")
+        print("使い方: python make_movie.py [設定JSONファイル名] [画像ベースディレクトリ] [音声ベースディレクトリ] "
+              "[BGMベースディレクトリ] [出力ベースディレクトリ] [スタイルJSONファイル]")
