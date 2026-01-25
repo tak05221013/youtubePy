@@ -82,14 +82,18 @@ def create_shorts_thumbnail(image_path, top_text, bottom_text, output_path):
         x_pos = (CANVAS_WIDTH - text_width) // 2
 
         # 縁取りの太さ
-        stroke_width = 15
+        outer_stroke_width = 18
+        stroke_width = 12
+        outer_stroke_color = (0, 0, 0)
 
         # 影の描画（少しずらして黒で描画）
         shadow_offset = 10
         draw_obj.text((x_pos + shadow_offset, y_pos + shadow_offset), text, font=font, fill=SHADOW_COLOR)
 
-        # 縁取り（白）の描画
-        # stroke_widthパラメータを使って太い縁取りを描画
+        # 外側の黒縁を描画
+        draw_obj.text((x_pos, y_pos), text, font=font, fill=fill_color, stroke_width=outer_stroke_width,
+                      stroke_fill=outer_stroke_color)
+        # 内側の白縁＋本体色の描画
         draw_obj.text((x_pos, y_pos), text, font=font, fill=fill_color, stroke_width=stroke_width,
                       stroke_fill=STROKE_COLOR)
 
