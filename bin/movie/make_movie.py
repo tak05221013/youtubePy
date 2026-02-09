@@ -106,7 +106,7 @@ def normalize_background_color(color_value):
 
 
 def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, bgm_base_dir=None,
-                           output_base_dir=None, styles_path=None):
+                           output_base_dir=None, styles_path=None, thumbnail_path=None):
     if not os.path.exists(json_path):
         print(f"Error: JSON file '{json_path}' not found.")
         return
@@ -233,6 +233,36 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
 
     final_video = concatenate_videoclips(scene_clips, method="compose")
 
+    if thumbnail_path:
+        resolved_thumbnail_path = resolve_path(thumbnail_path, image_base_dir)
+        if os.path.exists(resolved_thumbnail_path):
+            thumbnail_duration = 0.5
+            thumbnail_image = ImageClip(resolved_thumbnail_path).with_duration(thumbnail_duration)
+            thumbnail_image = thumbnail_image.resized(width=settings['width']).with_position('center')
+
+            background_color = normalize_background_color(
+                settings.get('background_color', 'white')
+            )
+            if isinstance(background_color, tuple):
+                thumbnail_background = ColorClip(
+                    size=(settings['width'], settings['height']),
+                    color=background_color
+                ).with_duration(thumbnail_duration)
+                thumbnail_clip = CompositeVideoClip(
+                    [thumbnail_background, thumbnail_image],
+                    size=(settings['width'], settings['height']),
+                    bg_color=background_color
+                )
+            else:
+                thumbnail_clip = CompositeVideoClip(
+                    [thumbnail_image],
+                    size=(settings['width'], settings['height'])
+                )
+
+            final_video = concatenate_videoclips([final_video, thumbnail_clip], method="compose")
+        else:
+            print(f"Warning: Thumbnail '{resolved_thumbnail_path}' not found. Skipping thumbnail insert.")
+
     bgm_path = resolve_path(settings.get('bgm_path'), bgm_base_dir)
     if bgm_path and os.path.exists(bgm_path):
         bgm = AudioFileClip(bgm_path).with_volume_scaled(settings['bgm_volume'])
@@ -265,14 +295,16 @@ if __name__ == "__main__":
         bgm_base_dir = sys.argv[4] if len(sys.argv) > 4 else None
         output_base_dir = sys.argv[5] if len(sys.argv) > 5 else None
         styles_path = sys.argv[6] if len(sys.argv) > 6 else None
+        thumbnail_path = sys.argv[7] if len(sys.argv) > 7 else None
         create_video_from_json(
             json_input,
             image_base_dir,
             audio_base_dir,
             bgm_base_dir,
             output_base_dir,
-            styles_path
+            styles_path,
+            thumbnail_path
         )
     else:
         print("使い方: python make_movie.py [設定JSONファイル名] [画像ベースディレクトリ] [音声ベースディレクトリ] "
-              "[BGMベースディレクトリ] [出力ベースディレクトリ] [スタイルJSONファイル]")
+              "[BGMベースディレクトリ] [出力ベースディレクトリ] [スタイルJSONファイル] [サムネイル画像パス]")
