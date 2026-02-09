@@ -77,7 +77,7 @@ def build_command(script_line: ScriptLine, output_path: Path, text_path: Path) -
 def run(script_path: Path, output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     script_lines = parse_script(script_path)
-    for index, script_line in enumerate(script_lines, start=1):
+    for index, script_line in enumerate(script_lines, start=0):
         output_path = output_dir / f"{index:03}.wav"
         text_path = output_dir / f"{index:03}.txt"
         text_path.write_text(sanitize_text(script_line.text), encoding="utf-8")
