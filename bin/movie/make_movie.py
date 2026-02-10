@@ -236,7 +236,7 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
     if thumbnail_path:
         resolved_thumbnail_path = resolve_path(thumbnail_path, image_base_dir)
         if os.path.exists(resolved_thumbnail_path):
-            thumbnail_duration = 0.5
+            thumbnail_duration = 3
             thumbnail_image = ImageClip(resolved_thumbnail_path).with_duration(thumbnail_duration)
             thumbnail_image = thumbnail_image.resized(width=settings['width']).with_position('center')
 
@@ -259,7 +259,7 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
                     size=(settings['width'], settings['height'])
                 )
 
-            final_video = concatenate_videoclips([final_video, thumbnail_clip], method="compose")
+            final_video = concatenate_videoclips([thumbnail_clip, final_video], method="compose")
         else:
             print(f"Warning: Thumbnail '{resolved_thumbnail_path}' not found. Skipping thumbnail insert.")
 
