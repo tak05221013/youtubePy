@@ -1,14 +1,14 @@
 {
   "impact_red": {
     "fontsize": 110,
-    "color": "white",
-    "stroke_color": "red",
+    "color": "red",
+    "stroke_color": "black",
     "stroke_width": 6,
     "font": "meiryob.ttc"
   },
   "caption_white": {
     "fontsize": 75,
-    "color": "white",
+    "color": "blue",
     "stroke_color": "black",
     "stroke_width": 2,
     "font": "meiryob.ttc"
