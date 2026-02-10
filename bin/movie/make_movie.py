@@ -105,6 +105,21 @@ def normalize_background_color(color_value):
     return color_value
 
 
+def build_text_clip(text, style, font_size, width, start_time, duration, position,
+                    stroke_color=None, stroke_width=None):
+    return TextClip(
+        text=text,
+        font=style['font'],
+        font_size=font_size,
+        color=style['color'],
+        bg_color=style.get('bg_color'),
+        stroke_color=stroke_color if stroke_color is not None else style.get('stroke_color'),
+        stroke_width=stroke_width if stroke_width is not None else style.get('stroke_width', 0),
+        method='caption',
+        size=(width, None)
+    ).with_start(start_time).with_duration(duration).with_position(position)
+
+
 def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, bgm_base_dir=None,
                            output_base_dir=None, styles_path=None, thumbnail_path=None):
     if not os.path.exists(json_path):
@@ -201,21 +216,36 @@ def create_video_from_json(json_path, image_base_dir=None, audio_base_dir=None, 
             # 見切れ対策の改行+空白
             display_text = merged_text + "\n "
 
-            txt = TextClip(
-                text=display_text,
-                font=style['font'],
-                font_size=optimized_size,
-                color=style['color'],
-                bg_color=style.get('bg_color'),
-                stroke_color=style.get('stroke_color'),
-                stroke_width=style.get('stroke_width', 0),
-                method='caption',
-                size=(target_width, None)
-            )
+            position = tuple(sub['position'])
+            base_stroke_width = style.get('stroke_width', 0)
 
-            txt = (txt.with_start(start_time)
-                   .with_duration(sub_duration)
-                   .with_position(tuple(sub['position'])))
+            outer_stroke_enabled = style.get('outer_stroke_enabled', False)
+            outer_stroke_color = style.get('outer_stroke_color', 'black')
+            outer_stroke_extra_width = style.get('outer_stroke_extra_width', 1)
+
+            if outer_stroke_enabled and outer_stroke_extra_width > 0:
+                outer_clip = build_text_clip(
+                    text=display_text,
+                    style=style,
+                    font_size=optimized_size,
+                    width=target_width,
+                    start_time=start_time,
+                    duration=sub_duration,
+                    position=position,
+                    stroke_color=outer_stroke_color,
+                    stroke_width=base_stroke_width + outer_stroke_extra_width
+                )
+                sub_clips.append(outer_clip)
+
+            txt = build_text_clip(
+                text=display_text,
+                style=style,
+                font_size=optimized_size,
+                width=target_width,
+                start_time=start_time,
+                duration=sub_duration,
+                position=position
+            )
             sub_clips.append(txt)
 
         scene_video = CompositeVideoClip(
