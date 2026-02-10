@@ -4,13 +4,19 @@
     "color": "red",
     "stroke_color": "white",
     "stroke_width": 6,
-    "font": "meiryob.ttc"
+    "font": "meiryob.ttc",
+    "outer_stroke_enabled": true,
+    "outer_stroke_color": "#222222",
+    "outer_stroke_extra_width": 1
   },
   "caption_white": {
     "fontsize": 75,
     "color": "blue",
     "stroke_color": "white",
     "stroke_width": 5,
-    "font": "meiryob.ttc"
+    "font": "meiryob.ttc",
+    "outer_stroke_enabled": true,
+    "outer_stroke_color": "#222222",
+    "outer_stroke_extra_width": 1
   }
 }
